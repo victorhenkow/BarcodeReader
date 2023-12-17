@@ -16,25 +16,25 @@ import os
 
 class User:
     def __init__(self, name):
-        # users = {"name": {"balance": balance, "email": E-mail}}
-        self.file_name = "saves/users.pkl"  # the name of the file with users
+        # users = {"name": {"balance": balance, "email": E-mail, "total": total_spent}}
+        self.file_name = self.getFileName()
 
         self.name = (name.lower()).strip()
         self.users = readToDict(self.file_name)  # Dictionary of all the users from saved file
 
         self.user_exist = existInDict(self.name, self.users)  # Does the user exist or not
 
-        self.history_file = "saves/history/" + self.name + "_history.pkl"  # name of the file with the users history
+        self.history_file = self.getHistoryFileName()
         if self.user_exist:
             self.history = readToDictList(self.history_file)
 
-    # maybe there is a better was to do this so a User does not need to be created
-    def getFileName(self):
-        return self.file_name
+    # returns the name of the file with all the users
+    @staticmethod
+    def getFileName():
+        return "saves/users.pkl"
 
-    # maybe there is a better was to do this so a User does not need to be created
     def getHistoryFileName(self):
-        return self.history_file
+        return "saves/history/" + self.name + "_history.pkl"
 
     def getHistory(self):
         return self.history
@@ -207,6 +207,22 @@ class Admin:
             else:
                 return True
 
+    # returns True if the input password equals the password for the admin
+    def checkPassword(self, password):
+        if not self.logged_in:
+            # admin not logged in error
+            raise AdminLoginError("Admin " + self.name + " is not logged in.")
+        else:
+            return password == self.admins[self.name]["password"]
+
+    def changePassword(self, password):
+        if not self.logged_in:
+            # admin not logged in error
+            raise AdminLoginError("Admin " + self.name + " is not logged in.")
+        else:
+            self.admins[self.name]["password"] = password
+            save(self.admins, self.file_name)
+
     # returns a dictionary of all the admins
     def getAllAdmins(self):
         if not self.logged_in:
@@ -221,9 +237,7 @@ class Admin:
             # admin not logged in error
             raise AdminLoginError("Admin " + self.name + " is not logged in.")
         else:
-            # we can use any name of the user since we just need the file name
-            user = User("")
-            file_name = user.getFileName()
+            file_name = User.getFileName()
             return readToDict(file_name)
 
     # returns a dictionary of all the products
@@ -232,9 +246,7 @@ class Admin:
             # admin not logged in error
             raise AdminLoginError("Admin " + self.name + " is not logged in.")
         else:
-            # we can use any barcode since we just need the file name
-            product = Product("")
-            file_name = product.getFileName()
+            file_name = Product.getFileName()
             return readToDict(file_name)
 
     def getName(self):
@@ -328,19 +340,41 @@ class Admin:
             name, price = product.removeProduct()
             return barcode, name, price
 
+    # updates the price and returns the old one
+    def updateProductPrice(self, barcode, new_price):
+        if not self.logged_in:
+            # not logged in error
+            raise AdminLoginError("Admin " + self.name + " is not logged in.")
+        else:
+            product = Product(barcode)
+            old_price = product.updatePrice(new_price)
+            return old_price
+
+    # updates the name and returns the old one
+    def updateProductName(self, barcode, new_name):
+        if not self.logged_in:
+            # not logged in error
+            raise AdminLoginError("Admin " + self.name + " is not logged in.")
+        else:
+            product = Product(barcode)
+            old_name = product.updateName(new_name)
+            return old_name
+
 
 class Product:
     def __init__(self, barcode):
         # products = {barcode: {"name": name, "price": price}}
-        self.file_name = "saves/products.pkl"
+        self.file_name = self.getFileName()
 
         self.barcode = (str(barcode).lower()).strip()
         self.products = readToDict(self.file_name)
 
         self.product_exist = existInDict(self.barcode, self.products)
 
-    def getFileName(self):
-        return self.file_name
+    # returns the name of the file with all the products
+    @staticmethod
+    def getFileName():
+        return "saves/products.pkl"
 
     def getBarcode(self):
         if not self.product_exist:
@@ -400,4 +434,16 @@ class Product:
         else:
             old_price = self.getPrice()
             self.products[self.barcode]["price"] = new_price
+            save(self.products, self.file_name)
             return old_price
+
+    # should only be called from Admin
+    # returns the old name
+    def updateName(self, new_name):
+        if not self.product_exist:
+            raise KeyError("There is no product with the barcode " + self.barcode)
+        else:
+            old_name = self.getName()
+            self.products[self.barcode]["name"] = new_name
+            save(self.products, self.file_name)
+            return old_name
